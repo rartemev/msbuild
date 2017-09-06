@@ -275,11 +275,25 @@ namespace Microsoft.Build.Shared
             internal LoadedType GetLoadedTypeByTypeName(string typeName)
             {
                 ErrorUtilities.VerifyThrowArgumentNull(typeName, "typeName");
-
+                Type type = null;
+                bool cond = (_assemblyLoadInfo.AssemblyName != null) && (typeName.Length > 0);
+                if (cond)
+                {
+                    try
+                    {
+                        // try to load the type using its assembly qualified name
+                        type = Type.GetType(typeName + "," + _assemblyLoadInfo.AssemblyName, false /* don't throw on error */, true /* case-insensitive */);
+                    }
+                    catch (ArgumentException)
+                    {
+                        // Type.GetType() will throw this exception if the type name is invalid -- but we have no idea if it's the
+                        // type or the assembly name that's the problem -- so just ignore the exception, because we're going to
+                        // check the existence/validity of the assembly and type respectively, below anyway
+                    }
+                }
                 // Only one thread should be doing operations on this instance of the object at a time.
                 lock (_lockObject)
                 {
-                    Type type = null;
 
                     // Maybe we've already cracked open this assembly before. Check to see if the typeName is in the list we dont look for partial matches here
                     // this is an optimization.
@@ -287,20 +301,8 @@ namespace Microsoft.Build.Shared
                     if (!foundType)
                     {
                         // We could still not find the type, lets try and resolve it by doing a get type.
-                        if ((_assemblyLoadInfo.AssemblyName != null) && (typeName.Length > 0))
+                        if (cond)
                         {
-                            try
-                            {
-                                // try to load the type using its assembly qualified name
-                                type = Type.GetType(typeName + "," + _assemblyLoadInfo.AssemblyName, false /* don't throw on error */, true /* case-insensitive */);
-                            }
-                            catch (ArgumentException)
-                            {
-                                // Type.GetType() will throw this exception if the type name is invalid -- but we have no idea if it's the
-                                // type or the assembly name that's the problem -- so just ignore the exception, because we're going to
-                                // check the existence/validity of the assembly and type respectively, below anyway
-                            }
-
                             // if we found the type, it means its assembly qualified name was also its fully qualified name
                             if (type != null)
                             {
@@ -341,14 +343,13 @@ namespace Microsoft.Build.Shared
                             }
                         }
                     }
-
-                    if (type != null)
-                    {
-                        return new LoadedType(type, _assemblyLoadInfo, _loadedAssembly);
-                    }
-
-                    return null;
                 }
+                if (type != null)
+                {
+                    return new LoadedType(type, _assemblyLoadInfo, _loadedAssembly);
+                }
+
+                return null;
             }
 
             /// <summary>
