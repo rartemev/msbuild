@@ -277,7 +277,7 @@ namespace Microsoft.Build.Shared
             /// <summary>
             /// Determine if a given type name is in the assembly or not. Return null if the type is not in the assembly
             /// </summary>
-            internal LoadedType GetLoadedTypeByTypeName(string typeName)
+            internal LoadedType GetLoadedTypeByTypeName(string typeName, bool extra = true)
             {
                 ErrorUtilities.VerifyThrowArgumentNull(typeName, "typeName");
                 Type type = null;
