@@ -13,6 +13,7 @@ using System.Collections;
 using System.Globalization;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Collections.Concurrent;
 
 namespace Microsoft.Build.Shared
 {
@@ -44,12 +45,12 @@ namespace Microsoft.Build.Shared
         /// <summary>
         /// Cache to keep track of the assemblyLoadInfos based on a given typeFilter.
         /// </summary>
-        private static IDictionary<TypeFilter, IDictionary<AssemblyLoadInfo, AssemblyInfoToLoadedTypes>> s_cacheOfLoadedTypesByFilter = new Dictionary<TypeFilter, IDictionary<AssemblyLoadInfo, AssemblyInfoToLoadedTypes>>();
+        private static ConcurrentDictionary<Func<Type, object, bool>, ConcurrentDictionary<AssemblyLoadInfo, AssemblyInfoToLoadedTypes>> s_cacheOfLoadedTypesByFilter = new ConcurrentDictionary<Func<Type, object, bool>, ConcurrentDictionary<AssemblyLoadInfo, AssemblyInfoToLoadedTypes>>();
 
         /// <summary>
-        /// Cache to keep track of the assemblyLoadInfos based on a given typeFilter for assemblies which are to be loaded for reflectionOnlyLoads.
+        /// Cache to keep track of the assemblyLoadInfos based on a given type filter for assemblies which are to be loaded for reflectionOnlyLoads.
         /// </summary>
-        private static IDictionary<TypeFilter, IDictionary<AssemblyLoadInfo, AssemblyInfoToLoadedTypes>> s_cacheOfReflectionOnlyLoadedTypesByFilter = new Dictionary<TypeFilter, IDictionary<AssemblyLoadInfo, AssemblyInfoToLoadedTypes>>();
+        private static ConcurrentDictionary<Func<Type, object, bool>, ConcurrentDictionary<AssemblyLoadInfo, AssemblyInfoToLoadedTypes>> s_cacheOfReflectionOnlyLoadedTypesByFilter = new ConcurrentDictionary<Func<Type, object, bool>, ConcurrentDictionary<AssemblyLoadInfo, AssemblyInfoToLoadedTypes>>();
 
         /// <summary>
         /// Typefilter for this typeloader
@@ -181,30 +182,34 @@ namespace Microsoft.Build.Shared
         /// any) is unambiguous; otherwise, if there are multiple types with the same name in different namespaces, the first type
         /// found will be returned.
         /// </summary>
-        private LoadedType GetLoadedType(object cacheLock, object loadInfoToTypeLock, IDictionary<TypeFilter, IDictionary<AssemblyLoadInfo, AssemblyInfoToLoadedTypes>> cache, string typeName, AssemblyLoadInfo assembly)
+        private LoadedType GetLoadedType(object cacheLock, object loadInfoToTypeLock, ConcurrentDictionary<Func<Type, object, bool>, ConcurrentDictionary<AssemblyLoadInfo, AssemblyInfoToLoadedTypes>> cache, string typeName, AssemblyLoadInfo assembly)
         {
-            // A given typefilter have been used on a number of assemblies, Based on the typefilter we will get another dictionary which 
+            // A given type filter have been used on a number of assemblies, Based on the type filter we will get another dictionary which 
             // will map a specific AssemblyLoadInfo to a AssemblyInfoToLoadedTypes class which knows how to find a typeName in a given assembly.
-            IDictionary<AssemblyLoadInfo, AssemblyInfoToLoadedTypes> loadInfoToType = null;
-            lock (cacheLock)
-            {
-                if (!cache.TryGetValue(_isDesiredType, out loadInfoToType))
-                {
-                    loadInfoToType = new Dictionary<AssemblyLoadInfo, AssemblyInfoToLoadedTypes>();
-                    cache.Add(_isDesiredType, loadInfoToType);
-                }
-            }
+            ConcurrentDictionary<AssemblyLoadInfo, AssemblyInfoToLoadedTypes> loadInfoToType =
+                cache.GetOrAdd(_isDesiredType, (_) => new ConcurrentDictionary<AssemblyLoadInfo, AssemblyInfoToLoadedTypes>());
+
+            //lock (cacheLock)
+            //{
+            //    if (!cache.TryGetValue(_isDesiredType, out loadInfoToType))
+            //    {
+            //        loadInfoToType = new ConcurrentDictionary<AssemblyLoadInfo, AssemblyInfoToLoadedTypes>();
+            //        cache.TryAdd(_isDesiredType, loadInfoToType);
+            //    }
+            //}
 
             // Get an object which is able to take a typename and determine if it is in the assembly pointed to by the AssemblyInfo.
-            AssemblyInfoToLoadedTypes typeNameToType = null;
-            lock (loadInfoToTypeLock)
-            {
-                if (!loadInfoToType.TryGetValue(assembly, out typeNameToType))
-                {
-                    typeNameToType = new AssemblyInfoToLoadedTypes(_isDesiredType, assembly);
-                    loadInfoToType.Add(assembly, typeNameToType);
-                }
-            }
+            AssemblyInfoToLoadedTypes typeNameToType =
+                loadInfoToType.GetOrAdd(assembly, (_) => new AssemblyInfoToLoadedTypes(_isDesiredType, _));
+
+            //lock (loadInfoToTypeLock)
+            //{
+            //    if (!loadInfoToType.TryGetValue(assembly, out typeNameToType))
+            //    {
+            //        typeNameToType = new AssemblyInfoToLoadedTypes(_isDesiredType, assembly);
+            //        loadInfoToType.TryAdd(assembly, typeNameToType);
+            //    }
+            //}
 
             return typeNameToType.GetLoadedTypeByTypeName(typeName);
         }
