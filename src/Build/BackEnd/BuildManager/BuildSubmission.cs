@@ -252,7 +252,7 @@ namespace Microsoft.Build.Execution
         {
             if (BuildResult != null && _loggingCompleted)
             {
-                bool hasCompleted = (Interlocked.Exchange(ref _completionInvoked, 1) == 1);
+                bool hasCompleted = (Interlocked.CompareExchange(ref _completionInvoked, 1, 0) == 1);
                 if (!hasCompleted)
                 {
                     _completionEvent.Set();
