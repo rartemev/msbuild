@@ -8,7 +8,7 @@
   </PropertyGroup>
   <Import Project="$([MSBuild]::GetDirectoryNameOfFileAbove($(MSBuildThisFileDirectory), dir.props))\dir.props" />
   <PropertyGroup>
-    <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <NuGetTargetMoniker>.NETFramework,Version=$(TargetFrameworkVersion)</NuGetTargetMoniker>
     <OutputType>Exe</OutputType>
     <AssemblyName>MSBuildTaskHost</AssemblyName>
