@@ -430,12 +430,6 @@ namespace Microsoft.Build.BackEnd
                             break;
                         case 1:
                             {
-                                // Figure out how many packets are currently in the queue to process.  We
-                                // will only process the number in the queue at this moment so that we don't
-                                // get into a condition where the sending thread continues to pump packets in
-                                // as fast as we can send them, potentially starving us from detecting a
-                                // terminate event.
-
                                 INodePacket packet;
                                 while (_packetQueue.TryDequeue(out packet))
                                 {
