@@ -5,7 +5,7 @@
     "SourceLink.Create.CommandLine": "2.1.2"
   },
   "frameworks": {
-    "net45": { }
+    "net35": { }
   },
   "runtimes": {
     "win": {},
