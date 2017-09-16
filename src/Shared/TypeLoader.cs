@@ -312,6 +312,19 @@ namespace Microsoft.Build.Shared
             {
                 ErrorUtilities.VerifyThrowArgumentNull(typeName, "typeName");
 
+                if (Interlocked.Read(ref _haveScannedPublicTypes) == 0)
+                {
+                    lock (_lockObject)
+                    {
+                        if (Interlocked.Read(ref _haveScannedPublicTypes) == 0)
+                        {
+                            ScanAssemblyForPublicTypes();
+                            _haveScannedPublicTypes = ~0;
+                            Interlocked.MemoryBarrier();
+                        }
+                    }
+                }
+
                 // Only one thread should be doing operations on this instance of the object at a time.
 
                 Type type = _typeNameToType.GetOrAdd(typeName, (key) =>
@@ -332,18 +345,6 @@ namespace Microsoft.Build.Shared
                             // Type.GetType() will throw this exception if the type name is invalid -- but we have no idea if it's the
                             // type or the assembly name that's the problem -- so just ignore the exception, because we're going to
                             // check the existence/validity of the assembly and type respectively, below anyway
-                        }
-                    }
-
-                    if (Interlocked.Read(ref _haveScannedPublicTypes) == 0)
-                    {
-                        lock (_lockObject)
-                        {
-                            if (Interlocked.Read(ref _haveScannedPublicTypes) == 0)
-                            {
-                                ScanAssemblyForPublicTypes();
-                                Interlocked.Exchange(ref _haveScannedPublicTypes, ~0);
-                            }
                         }
                     }
 
